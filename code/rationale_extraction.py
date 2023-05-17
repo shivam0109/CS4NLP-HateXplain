@@ -1,6 +1,7 @@
 """
 Code to extract rationales from Open Assistant (Huggingface Chat) for each row. 
 Prompt for HuggingChat -> Is the following statement hate speech, why or why not? 
+API: https://github.com/Soulter/hugging-chat-api 
 
 TO DO: Can change the hyperparameters for chatbot: temperature, etc. 
 """
@@ -42,7 +43,10 @@ class ExtractRationales():
 
     # Function to split df into 10 chunks - easier to extract and write on disk. 
     def chunk_data(self, df):
-        return np.array_split(df, 10)
+        if df.shape[0]>=10000:
+            return np.array_split(df, 1000)
+        else:
+            return np.array_split(df, 100)
 
     # Function to save generated rationales for each df chunk. 
     def save_rationales(self, df, path, mode='a'):
