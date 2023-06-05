@@ -23,19 +23,31 @@ class BertClassifier(pl.LightningModule):
         input_ids, attention_mask, classifications, sentences = batch
 
         logits = self(input_ids, attention_mask)
-        loss = self.loss_fn(logits, classifications)
+        loss_fn = nn.CrossEntropyLoss()
+        loss = loss_fn(logits, torch.max(classifications, 1)[1])
+
+        preds = torch.argmax(logits, dim=1)
+        acc = (preds == torch.argmax(classifications, dim=1)).float().mean()
 
         self.log('train_loss', loss, on_step=True, on_epoch=True, prog_bar=True, logger=True)
+        self.log('train_acc', acc, on_step=True, on_epoch=True, prog_bar=True, logger=True)
+
         return loss
 
     def validation_step(self, batch, batch_idx):
         input_ids, attention_mask, classifications, sentences = batch
 
         logits = self(input_ids, attention_mask)
-        loss = self.loss_fn(logits, classifications)
+        loss_fn = nn.CrossEntropyLoss()
+        loss = loss_fn(logits, torch.max(classifications, 1)[1])
+
+        preds = torch.argmax(logits, dim=1)
+        acc = (preds == torch.argmax(classifications, dim=1)).float().mean()
 
         self.log('val_loss', loss, on_step=False, on_epoch=True, prog_bar=True, logger=True)
-        return loss
+        self.log('val_acc', acc, on_step=False, on_epoch=True, prog_bar=True, logger=True)
+
+        return loss, acc
 
     def configure_optimizers(self):
         optimizer = torch.optim.AdamW(self.parameters(), lr=self.learning_rate)
