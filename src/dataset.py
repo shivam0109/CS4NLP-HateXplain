@@ -45,6 +45,8 @@ class HateXPlainDataset(Dataset):
         else:
             return [1, 0, 0] # Normal
         
+    def extract_sensitive_words(self, text, rationales)
+        
 class HateXplainDataModule(pl.LightningDataModule):
     def __init__(self, batch_size=32):
         super().__init__()
