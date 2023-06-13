@@ -1,100 +1,50 @@
-from datasets import load_dataset
-import torch
-from torch.utils.data import Dataset, DataLoader
-from transformers import BertTokenizer
+import pandas as pd
+from datasets import load_dataset, concatenate_datasets
 
-from nltk.corpus import stopwords
-from nltk.stem import WordNetLemmatizer
-import pytorch_lightning as pl
 
-STOP_WORDS = stopwords.words('english')
-LEMMATIZER = WordNetLemmatizer()
+def preprocess_sample(sample: dict):
+    # Sentences are currently saved as a list of words so we preprocess it into a sentence and remove stop words and add a prefix
+    sample['sentence'] = " ".join([word for word in sample['post_tokens']])
 
-class HateXPlainDataset(Dataset):
-    def __init__(self, dataset):
+    # Classify each sample based on the opinion of the annotators. We take the mean of opinions and classify it then.
+    SCORE = {0: 1, 1: 0, 2: 0.5} # 0: Hate Speech, 1: Normal, 2: Offensive. We therefore have to rearange it.
+    avg_score = sum(SCORE[score] for score in sample['annotators']['label']) / len(sample['annotators']['label'])
+    sample['classification'] = "Hate Speech" if avg_score >= 0.666 else "Offensive" if avg_score >= 0.333 else "Normal"
 
-        self.dataset = dataset.map(lambda x: {
-        'post_tokens': self.preprocess_post_tokens(x['post_tokens']),
-        'annotators': self.preprocess_annotators(x['annotators'])
-        })
+    # Take the words that were highlighted by the annotators and try to create a rationale out of it
+    rationale = [sum(elements) for elements in zip(*sample['rationales'])]
+    words = [sample['post_tokens'][i] for i, rationale in enumerate(rationale) if rationale > 0]
+    if len(words) > 0 and sample['classification'] != "Normal":
+        explanation = "This sentence was classified as such because it contains harmful words such as: "
+        sample['rationale'] = explanation + ", ".join([f"'{word}'" for word in words])
+    elif sample['classification'] == "Hate Speech" or sample['classification'] == "Offensive":
+        sample['rationale'] =  "This sentence has a harmful tone."
+    else:
+        sample['rationale'] = "This sentence was classified as normal because it contains no harmful words."
 
-        self.sentences = [sentence['post_tokens'] for sentence in self.dataset]
-        self.classifications = [label['annotators'] for label in self.dataset]
+    return sample
 
-    def __len__(self):
-        return len(self.sentences)
+def load_datasets():
+    # Loads the datasets from huggingface and preprocesses them
+    dataset = load_dataset('hatexplain')
+    train_dataset = dataset["train"].map(preprocess_sample, remove_columns=["id", "annotators", "rationales", "post_tokens"])
+    test_dataset = dataset["test"].map(preprocess_sample, remove_columns=["id", "annotators", "rationales", "post_tokens"])
+    val_dataset = dataset["validation"].map(preprocess_sample, remove_columns=["id", "annotators", "rationales", "post_tokens"])
 
-    def __getitem__(self, index):
-        sentence = self.sentences[index]
-        classification = self.classifications[index]
-        return sentence, classification    
+    return train_dataset, test_dataset, val_dataset
 
-    def preprocess_post_tokens(self, text):
-        sentences = [LEMMATIZER.lemmatize(word.lower()) for word in text if word not in STOP_WORDS]
-        return " ".join(sentences)
+def get_max_sizes(train_dataset, test_dataset, val_dataset):
+    # Returns the size of the longest Sentence/Classification/Rationale
+    tokenized_inputs = concatenate_datasets([train_dataset, test_dataset, val_dataset])
 
-    def preprocess_annotators(self, text):
-        SCORE = {0: 1, 1: 0, 2:.5}
+    max_s = max([len(sample) for sample in tokenized_inputs["sentence"]])
+    max_c = max([len(sample) for sample in tokenized_inputs["classification"]])
+    max_r = max([len(sample) for sample in tokenized_inputs["rationale"]])
 
-        scores = [SCORE[score] for score in text['label']]
-        avg_score = sum(scores) / len(scores)
-        if avg_score > 0.666:
-            return [0, 0, 1] # Hate Speech
-        elif avg_score > 0.333:
-            return [0, 1, 0] # Offensive
-        else:
-            return [1, 0, 0] # Normal
-        
-    def extract_sensitive_words(self, text, rationales)
-        
-class HateXplainDataModule(pl.LightningDataModule):
-    def __init__(self, batch_size=32):
-        super().__init__()
-        self.batch_size = batch_size
+    return max_s, max_c, max_r
 
-        self.tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
+if __name__ == "__main__":
+    train_dataset, test_dataset, val_dataset = load_datasets()
 
-    def setup(self, stage=None):
-        dataset = load_dataset('hatexplain')
-        self.train_dataset = HateXPlainDataset(dataset['train'])
-        self.test_dataset = HateXPlainDataset(dataset['test'])
-        self.val_dataset = HateXPlainDataset(dataset['validation'])
-
-    def train_dataloader(self):
-        return DataLoader(
-            self.train_dataset,
-            batch_size=self.batch_size,
-            shuffle=True,
-            collate_fn=self.collate_fn
-        )
-
-    def val_dataloader(self):
-        return DataLoader(
-            self.test_dataset,
-            batch_size=self.batch_size,
-            shuffle=False,
-            collate_fn=self.collate_fn
-        )
-
-    def test_dataloader(self):
-        return DataLoader(
-            self.val_dataset,
-            batch_size=self.batch_size,
-            shuffle=False,
-            collate_fn=self.collate_fn
-        )
-    
-    def collate_fn(self, batch):
-        sentences, classifications = zip(*batch)
-
-        encoded_inputs = self.tokenizer(
-            sentences,
-            padding=True,
-            truncation=True,
-            return_tensors='pt'
-        )
-        input_ids = encoded_inputs['input_ids']
-        attention_mask = encoded_inputs['attention_mask']
-        classifications = torch.tensor(classifications).float()
-
-        return input_ids, attention_mask, classifications, sentences
+    print([x["sentence"] for x in train_dataset if x["classification"] == "Offensive"])
+    # max_sentence, max_classification, max_rationale = get_max_sizes(train_dataset, test_dataset, val_dataset)
