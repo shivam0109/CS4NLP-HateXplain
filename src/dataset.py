@@ -1,9 +1,8 @@
-import pandas as pd
-import torch
 from datasets import load_dataset, concatenate_datasets
-from transformers import T5Tokenizer, T5ForConditionalGeneration
+from transformers import T5Tokenizer
 
 from torch.utils.data import Dataset, DataLoader
+import pytorch_lightning as pl
 
 def preprocess_sample(sample: dict):
     # Sentences are currently saved as a list of words so we preprocess it into a sentence and remove stop words and add a prefix
@@ -45,34 +44,54 @@ def get_max_sizes(train_dataset, test_dataset, val_dataset):
     return max_s, max_r
 
 def tokenize_sample(tokenizer, sample, max_sentence, max_rationale):
-    sample['sentence']  = tokenizer(sample['sentence'], max_length=max_sentence, padding="max_length", truncation=True, return_tensors='pt')
-    sample['rationale'] = tokenizer(sample['rationale'], max_length=max_rationale, padding="max_length", truncation=True, return_tensors='pt')
+    sample['tokenized_sentence']  = tokenizer(sample['sentence'], max_length=max_sentence, padding="max_length", truncation=True, return_tensors='pt')
+    sample['tokenized_rationale'] = tokenizer(sample['rationale'], max_length=max_rationale, padding="max_length", truncation=True, return_tensors='pt')
     return sample
 
-class HateXplainDataset(Dataset):
-    def __init__(self, dataset):
-        self.dataset = dataset
-        self.len = len(dataset)
-
-    def __len__(self):
-        return self.len
-     
-    def __getitem__(self, index):
-        return self.dataset[index]
-
-if __name__ == "__main__":
+def get_datasets(tokenizer):
+    # Used for testing. Can be safely removed later
     train_dataset, test_dataset, val_dataset = load_datasets()
     max_sentence, max_rationale = get_max_sizes(train_dataset, test_dataset, val_dataset)
 
-    tokenizer = T5Tokenizer.from_pretrained('t5-small')
-    train_dataset = train_dataset.map(lambda sample: tokenize_sample(tokenizer, sample, max_sentence, max_rationale))
-    test_dataset = test_dataset.map(lambda sample: tokenize_sample(tokenizer, sample, max_sentence, max_rationale))
-    val_dataset = val_dataset.map(lambda sample: tokenize_sample(tokenizer, sample, max_sentence, max_rationale))
-    
-    model = T5ForConditionalGeneration.from_pretrained('t5-small')
+    train_dataset = HateXplainDataset(train_dataset.map(lambda sample: tokenize_sample(tokenizer, sample, max_sentence, max_rationale)))
+    test_dataset = HateXplainDataset(test_dataset.map(lambda sample: tokenize_sample(tokenizer, sample, max_sentence, max_rationale)))
+    val_dataset = HateXplainDataset(val_dataset.map(lambda sample: tokenize_sample(tokenizer, sample, max_sentence, max_rationale)))
 
-    outputs = model.generate(
-        input_ids = torch.tensor(train_dataset[1]['sentence']['input_ids']),
-        attention_mask = torch.tensor(train_dataset[1]['sentence']['attention_mask'])
-    )
-    print(tokenizer.batch_decode(outputs, skip_special_tokens=True))
+    return train_dataset, test_dataset, val_dataset
+
+class HateXplainDataset(Dataset):
+    def __init__(self, dataset):
+        self.sentences = dataset["sentence"]
+        self.rationale = dataset["rationale"]
+        self.tokenized_sentence = dataset["tokenized_sentence"]
+        self.tokenized_rationale = dataset["tokenized_rationale"]
+
+    def __len__(self):
+        return len(self.sentences)
+     
+    def __getitem__(self, index):
+        return self.tokenized_sentence[index], self.tokenized_rationale[index]
+    
+class HateXplainDataModule(pl.LightningDataModule):
+    def __init__(self, batch_size = 32):
+        self.batch_size = batch_size
+        self.tokenizer = T5Tokenizer.from_pretrained('t5-small')
+
+        train_dataset, test_dataset, val_dataset = load_datasets()
+        max_sentence, max_rationale = get_max_sizes(train_dataset, test_dataset, val_dataset)
+
+        # Each entry consists of "sentence", "rationale", "tokenized_sentence", "tokenized_rationale"
+        self.train_dataset = HateXplainDataset(train_dataset.map(lambda sample: tokenize_sample(self.tokenizer, sample, max_sentence, max_rationale)))
+        self.test_dataset = HateXplainDataset(test_dataset.map(lambda sample: tokenize_sample(self.tokenizer, sample, max_sentence, max_rationale)))
+        self.val_dataset = HateXplainDataset(val_dataset.map(lambda sample: tokenize_sample(self.tokenizer, sample, max_sentence, max_rationale)))
+
+        print(len(self.train_dataset), len(self.test_dataset), len(self.val_dataset))
+
+    def train_dataloader(self):
+        return DataLoader(self.train_dataset, batch_size=self.batch_size, shuffle=True)
+    
+    def test_dataloader(self):
+        return DataLoader(self.test_dataset, batch_size=self.batch_size)
+    
+    def val_dataloader(self):
+        return DataLoader(self.val_dataset, batch_size=self.batch_size)
