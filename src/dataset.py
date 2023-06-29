@@ -4,7 +4,22 @@ from transformers import T5Tokenizer
 
 from torch.utils.data import Dataset, DataLoader
 import pytorch_lightning as pl
-    
+
+class HateXplainDataset(Dataset):
+    def __init__(self, dataset) -> None:
+        super().__init__()
+        self.dataset = dataset
+
+    def __len__(self):
+        return len(self.dataset)
+
+    def __getitem__(self, index):
+        input_ids = torch.tensor(self.dataset[index]["input_ids"])
+        attention_mask = torch.tensor(self.dataset[index]["attention_mask"])
+        decoder_input_ids = torch.tensor(self.dataset[index]["decoder_input_ids"])
+        decoder_attention_mask = torch.tensor(self.dataset[index]["decoder_attention_mask"])
+        return input_ids, attention_mask, decoder_input_ids, decoder_attention_mask
+
 class HateXplainDataModule(pl.LightningDataModule):
     def __init__(self, batch_size = 32):
         super().__init__()
@@ -42,10 +57,10 @@ class HateXplainDataModule(pl.LightningDataModule):
         # sample["labels"] = torch.tensor([classification])
 
         rationale = self.tokenizer(rationale, max_length=self.max_rationale, padding="max_length", truncation=True, return_tensors='pt')
-        sample["input_ids"] = sentence["input_ids"]
-        sample["attention_mask"] = sentence["attention_mask"]
-        sample["decoder_input_ids"] = rationale["input_ids"]
-        sample["decoder_attention_mask"] = rationale["attention_mask"]
+        sample["input_ids"] = sentence["input_ids"].squeeze()
+        sample["attention_mask"] = sentence["attention_mask"].squeeze()
+        sample["decoder_input_ids"] = rationale["input_ids"].squeeze()
+        sample["decoder_attention_mask"] = rationale["attention_mask"].squeeze()
 
         return sample
 
@@ -64,10 +79,10 @@ class HateXplainDataModule(pl.LightningDataModule):
         
 
     def train_dataloader(self):
-        return DataLoader(self.dataset["train"], shuffle=True)
+        return DataLoader(HateXplainDataset(self.dataset["train"]), shuffle=True)
     
     def test_dataloader(self):
-        return DataLoader(self.dataset["test"])
+        return DataLoader(HateXplainDataset(self.dataset["test"]))
     
     def val_dataloader(self):
-        return DataLoader(self.dataset["validation"])
+        return DataLoader(HateXplainDataset(self.dataset["validation"]))
