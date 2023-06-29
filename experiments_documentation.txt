@@ -1,0 +1,4 @@
+Experiment 1: Check OpenAssistant's responses with or without unmasking. 
+              Tokens have been unmasked according to preprocessing in code/data_load_basic_preprocess.py. 
+              This may or may not lead to increase in performance. 
+
