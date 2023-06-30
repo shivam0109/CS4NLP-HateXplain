@@ -6,5 +6,5 @@ This table summarizes the current worflow followed for hate-speech detection:
 
 | Stage  | Description |
 | ------------- | ------------- |
-| Preprocessing  | Content Cell  |
-| Training  | Content Cell  |
+| 1: Preprocessing  | Content Cell  |
+| 2: Training  | Content Cell  |
