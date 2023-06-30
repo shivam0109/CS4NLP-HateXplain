@@ -12,7 +12,8 @@ This table summarizes the current worflow followed for hate-speech detection:
 * Having derived these labels, we continue with deriving the rationales by concatenating the list of words used to a standard phrase for each of the three labeled classes:
   * **Hate/Offensive speech (and word rationales available):** Rationale: This sentence was classified as {Hate/Offensive speech} because it contains harmful words such as: {list of words}.
   * **Hate/Offensive speech (and no word rationales available):** Rationale: This sentence has a harmful tone and was thus classified as {Hate/Offensive speech}.
-  * **Normal Speech:** Rationale: This sentence was classified as normal because it contains no harmful words.  
+  * **Normal Speech:** Rationale: This sentence was classified as normal because it contains no harmful words.
+* The words representing the sentence are merged into a sentence and then tokenized using t5-small
 
 
 ## Training
