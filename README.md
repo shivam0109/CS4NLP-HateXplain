@@ -4,7 +4,7 @@ Project Repo of Computational Semantics for NLP - Hateful Speech Detection with 
 # Current workflow
 This table summarizes the current worflow followed for hate-speech detection: 
 
-| First Header  | Second Header |
+| Stage  | Description |
 | ------------- | ------------- |
-| Content Cell  | Content Cell  |
-| Content Cell  | Content Cell  |
+| Preprocessing  | Content Cell  |
+| Training  | Content Cell  |
