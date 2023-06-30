@@ -10,8 +10,8 @@ This table summarizes the current worflow followed for hate-speech detection:
 * Given these annotations we calculate an avg_score as the mean of all annotations
 * If the average score is greater or equal to 0.666, the sample is labeled as "Hate Speech", if the score is between 0.333 and 0.666 the sample is labeled as offensive, else the sample is labeled as normal
 * Having derived these labels, we continue with deriving the rationales by concatenating the list of words used to a standard phrase for each of the three labeled classes:
-  * **Hate Speech:**
-  * **Offensive Speech:**
+  * **Hate/Offensive speech (and word rationales available):** This sentence has a 
+  * **Hate/Offensive speech (and no word rationales available):**
   * **Normal Speech:**
 
 
