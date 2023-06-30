@@ -8,6 +8,7 @@ This table summarizes the current worflow followed for hate-speech detection:
 * A sample consists of a list of words and multiple annotations whether the given the sentence is hate speech
 * Such an annotation can either be 0 for Hate Speech, 1 for normal and 2 for Hate Speech
 * Given these annotations we calculate an avg_score as the mean of all annotations
+* If the average score is greater or equal to 0.666, the sample is labeled as "Hate Speech", if the score is between 0.333 and 0.666 the sample is labeled as offensive, else the sample is labeled as normal
 
 
 ## Training
