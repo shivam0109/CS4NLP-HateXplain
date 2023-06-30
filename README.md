@@ -1,2 +1,10 @@
 # CS4NLP-HateXplain
 Project Repo of Computational Semantics for NLP - Hateful Speech Detection with explanations
+
+# Current workflow
+This table summarizes the current worflow followed for hate-speech detection: 
+
+| First Header  | Second Header |
+| ------------- | ------------- |
+| Content Cell  | Content Cell  |
+| Content Cell  | Content Cell  |
