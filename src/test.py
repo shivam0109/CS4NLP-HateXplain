@@ -33,35 +33,35 @@ def get_data() -> tuple:
 
     return sentences, classifications, vectorizer
 
-def decision_tree_classifier(X_train, X_test, y_train, y_test, vectorizer) -> int:
-    print("Decision Tree Classifier")
-    clf = DecisionTreeClassifier(max_depth=1)
-    clf.fit(X_train, y_train)
-    y_pred = clf.predict(X_test)
+def analyze_classifier(X_train, X_test, y_train, y_test, vectorizer, classifier) -> int:
+    print("Current Classifier: ", type(classifier).__name__)
+    classifier.fit(X_train, y_train)
+    y_pred = classifier.predict(X_test)
     print("Accuracy:", accuracy_score(y_test, y_pred))
     print("F1:", f1_score(y_test, y_pred))
+
+    vocabulary_list = [word for word, _ in sorted(vectorizer.vocabulary_.items(), key=lambda x: x[1])]
+
+    feature_importances = list(zip(vocabulary_list, classifier.feature_importances_))
+    sorted_features = sorted(feature_importances, key=lambda x: x[1], reverse=True)
+
+    print("Top words with the most influence (Decision Tree):")
+    for i in range(5):
+        print("Word: '", sorted_features[i][0], "'. Importance:", sorted_features[i][1])
+    
+    print("---------------------------------------------")
 
 def main() -> None:
     sentences, classifications, vectorizer = get_data()
     X_train, X_test, y_train, y_test = train_test_split(sentences, classifications, test_size=0.2, random_state=42)
 
-    decision_tree_classifier(X_train, X_test, y_train, y_test, vectorizer)
-    
+    classifiers = [
+        DecisionTreeClassifier(),
+        RandomForestClassifier()
+    ]
 
-
-
-
-
-
-
+    for classifier in classifiers:
+        analyze_classifier(X_train, X_test, y_train, y_test, vectorizer, classifier)
 
 if __name__ == "__main__":
     main()
-
-# sorted_indices = feature_importances.argsort()[::-1]
-
-# num_top_words = 5
-# top_words = [feature_names[idx] for idx in sorted_indices[:5]]
-# print("Top words with the most influence:")
-# for word in top_words:
-#     print(word)
