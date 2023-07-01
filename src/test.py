@@ -1,10 +1,9 @@
 import numpy as np
 from sklearn.feature_extraction.text import CountVectorizer
 from sklearn.tree import DecisionTreeClassifier
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.linear_model import LogisticRegression
+from sklearn.ensemble import AdaBoostClassifier, BaggingClassifier, GradientBoostingClassifier, RandomForestClassifier
 from sklearn.model_selection import train_test_split
-from sklearn.metrics import accuracy_score, f1_score
+from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_score
 
 
 from datasets import load_dataset, concatenate_datasets
@@ -39,6 +38,8 @@ def analyze_classifier(X_train, X_test, y_train, y_test, vectorizer, classifier)
     y_pred = classifier.predict(X_test)
     print("Accuracy:", accuracy_score(y_test, y_pred))
     print("F1:", f1_score(y_test, y_pred))
+    print("Precision:", precision_score(y_test, y_pred))
+    print("Recall:", recall_score(y_test, y_pred))
 
     vocabulary_list = [word for word, _ in sorted(vectorizer.vocabulary_.items(), key=lambda x: x[1])]
 
@@ -57,7 +58,10 @@ def main() -> None:
 
     classifiers = [
         DecisionTreeClassifier(),
-        RandomForestClassifier()
+        RandomForestClassifier(),
+        BaggingClassifier(),
+        AdaBoostClassifier(),
+        GradientBoostingClassifier()
     ]
 
     for classifier in classifiers:
