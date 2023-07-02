@@ -6,9 +6,6 @@ from sklearn.svm import SVC
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_score
 
-import torch
-from transformers import BertForSequenceClassification, BertTokenizer
-
 import matplotlib.pyplot as plt
 from nltk.corpus import stopwords
 from nltk.stem import WordNetLemmatizer
@@ -52,27 +49,14 @@ def get_data(vectorize: bool = True):
         return sentences, classifications
 
 def analyze_svm(X_train, X_test, y_train, y_test, vectorizer, classifier: SVC) -> None:
-    # print("Current Classifier: ", type(classifier).__name__)
+    print("Current Classifier: ", type(classifier).__name__)
     classifier.fit(X_train, y_train)
-    # y_pred = classifier.predict(X_test)
+    y_pred = classifier.predict(X_test)
 
-    # print("Accuracy:", accuracy_score(y_test, y_pred))
-    # print("F1:", f1_score(y_test, y_pred))
-    # print("Precision:", precision_score(y_test, y_pred))
-    # print("Recall:", recall_score(y_test, y_pred))
-
-    print(X_test[0].shape, classifier.coef_.shape)
-
-    vocabulary_list = [word for word, _ in sorted(vectorizer.vocabulary_.items(), key=lambda x: x[1])]
-
-    feature_importances = list(zip(vocabulary_list, classifier.coef_[0]))
-    sorted_features = sorted(feature_importances, key=lambda x: x[1], reverse=True)
-
-    print("Top words with the most influence (SVM):")
-    for i in range(10):
-        print("Word: '", sorted_features[i][0], "'. Importance:", sorted_features[i][1])
-    
-    print("---------------------------------------------")
+    print("Accuracy:", accuracy_score(y_test, y_pred))
+    print("F1:", f1_score(y_test, y_pred))
+    print("Precision:", precision_score(y_test, y_pred))
+    print("Recall:", recall_score(y_test, y_pred))
 
 def analyze_classifier(X_train, X_test, y_train, y_test, vectorizer, classifier) -> None:
     print("Current Classifier: ", type(classifier).__name__)
@@ -105,54 +89,11 @@ def analyze_classifier(X_train, X_test, y_train, y_test, vectorizer, classifier)
     
     print("---------------------------------------------")
 
-def classify_bert() -> None:
-    model_name = 'bert-base-uncased'
-    model = BertForSequenceClassification.from_pretrained(model_name, num_labels=2)
-    tokenizer = BertTokenizer.from_pretrained(model_name)
-
-    sentences, classifications = get_data(vectorize=False)
-    prefix = "Is the following sentence normal or hate speech? "
-    sentences = [prefix + sentence for sentence in sentences]
-
-    X_train, X_test, y_train, y_test = train_test_split(sentences, classifications, test_size=0.2, random_state=42)
-
-    train_inputs = tokenizer.batch_encode_plus(
-        X_train,
-        padding=True,
-        truncation=True,
-        return_tensors="pt"
-    )
-
-    test_inputs = tokenizer.batch_encode_plus(
-        X_test,
-        padding=True,
-        truncation=True,
-        return_tensors="pt"
-    )
-
-
-    outputs = model(
-        inputs["input_ids"],
-        attention_mask=inputs["attention_mask"]
-    )
-    # predictions = [0 if "0" in prediction else 1 for prediction in predictions]
-    predictions = torch.argmax(outputs.logits, dim=1).tolist()
-    print(classifications)
-    print(predictions)
-    print(outputs.logits)
-    
-    # accuracy = accuracy_score(classifications, predictions)
-    # f1 = f1_score(classifications, predictions)
-
-    # print("Accuracy:", accuracy)
-    # print("F1-score:", f1)
-
-
 def main() -> None:
     sentences, classifications, vectorizer = get_data()
     X_train, X_test, y_train, y_test = train_test_split(sentences, classifications, test_size=0.2, random_state=42)
 
-    # analyze_svm(X_train, X_test, y_train, y_test, vectorizer, SVC(kernel='linear', random_state=42))
+    analyze_svm(X_train, X_test, y_train, y_test, vectorizer, SVC(kernel='linear', random_state=42))
     analyze_classifier(X_train, X_test, y_train, y_test, vectorizer, DecisionTreeClassifier())
     analyze_classifier(X_train, X_test, y_train, y_test, vectorizer, RandomForestClassifier())
 
