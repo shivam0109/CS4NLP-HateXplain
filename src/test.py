@@ -3,21 +3,17 @@ from sklearn.feature_extraction.text import CountVectorizer
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.svm import SVC
-from sklearn.neural_network import MLPClassifier
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_score
+
+import torch
+from transformers import BertForSequenceClassification, BertTokenizer
 
 import matplotlib.pyplot as plt
 from nltk.corpus import stopwords
 from nltk.stem import WordNetLemmatizer
 
 from datasets import load_dataset, concatenate_datasets
-
-# Lime <- David
-# Neuen Classifier <- Julian
-# Text <- David
-# T5 Classifier <- Julian
-
 
 SCORE = {0: 1, 1: 0, 2: 0.5} # 0: Hate Speech, 1: Normal, 2: Offensive
 STOP_WORDS = stopwords.words('english')
@@ -34,16 +30,26 @@ def vectorize_sentences(sample: dict, vectorizer: CountVectorizer) -> dict:
     sample["sentence"] = vectorizer.transform(sample["sentence"]).toarray()
     return sample
 
-def get_data() -> tuple:
+def get_data(vectorize: bool = True):
     dataset = load_dataset('hatexplain')
     concatenated_dataset = concatenate_datasets([dataset["train"], dataset["validation"], dataset["test"]])
     concatenated_dataset = concatenated_dataset.map(preprocess_sample, remove_columns=["id", "annotators", "rationales", "post_tokens"])
 
-    vectorizer = CountVectorizer()
-    sentences = vectorizer.fit_transform(concatenated_dataset["sentence"]).toarray()
-    classifications = np.array(concatenated_dataset["classification"])
+    if vectorize is True:
+        vectorizer = CountVectorizer()
+        sentences = vectorizer.fit_transform(concatenated_dataset["sentence"]).toarray()
+        classifications = np.array(concatenated_dataset["classification"])
 
-    return sentences, classifications, vectorizer
+        percentage_of_zeros = np.count_nonzero(classifications == 0) / len(classifications)
+        print("Percentage of zeros:", percentage_of_zeros)
+
+        return sentences, classifications, vectorizer
+
+    else:
+        sentences = list(concatenated_dataset["sentence"])
+        classifications = np.array(concatenated_dataset["classification"])
+
+        return sentences, classifications
 
 def analyze_svm(X_train, X_test, y_train, y_test, vectorizer, classifier: SVC) -> None:
     # print("Current Classifier: ", type(classifier).__name__)
@@ -99,15 +105,56 @@ def analyze_classifier(X_train, X_test, y_train, y_test, vectorizer, classifier)
     
     print("---------------------------------------------")
 
-        
+def classify_bert() -> None:
+    model_name = 'bert-base-uncased'
+    model = BertForSequenceClassification.from_pretrained(model_name, num_labels=2)
+    tokenizer = BertTokenizer.from_pretrained(model_name)
+
+    sentences, classifications = get_data(vectorize=False)
+    prefix = "Is the following sentence normal or hate speech? "
+    sentences = [prefix + sentence for sentence in sentences]
+
+    X_train, X_test, y_train, y_test = train_test_split(sentences, classifications, test_size=0.2, random_state=42)
+
+    train_inputs = tokenizer.batch_encode_plus(
+        X_train,
+        padding=True,
+        truncation=True,
+        return_tensors="pt"
+    )
+
+    test_inputs = tokenizer.batch_encode_plus(
+        X_test,
+        padding=True,
+        truncation=True,
+        return_tensors="pt"
+    )
+
+
+    outputs = model(
+        inputs["input_ids"],
+        attention_mask=inputs["attention_mask"]
+    )
+    # predictions = [0 if "0" in prediction else 1 for prediction in predictions]
+    predictions = torch.argmax(outputs.logits, dim=1).tolist()
+    print(classifications)
+    print(predictions)
+    print(outputs.logits)
+    
+    # accuracy = accuracy_score(classifications, predictions)
+    # f1 = f1_score(classifications, predictions)
+
+    # print("Accuracy:", accuracy)
+    # print("F1-score:", f1)
+
 
 def main() -> None:
     sentences, classifications, vectorizer = get_data()
     X_train, X_test, y_train, y_test = train_test_split(sentences, classifications, test_size=0.2, random_state=42)
 
-    analyze_svm(X_train, X_test, y_train, y_test, vectorizer, SVC(kernel='linear', random_state=42))
-    # analyze_classifier(X_train, X_test, y_train, y_test, vectorizer, DecisionTreeClassifier())
-    # analyze_classifier(X_train, X_test, y_train, y_test, vectorizer, RandomForestClassifier())
+    # analyze_svm(X_train, X_test, y_train, y_test, vectorizer, SVC(kernel='linear', random_state=42))
+    analyze_classifier(X_train, X_test, y_train, y_test, vectorizer, DecisionTreeClassifier())
+    analyze_classifier(X_train, X_test, y_train, y_test, vectorizer, RandomForestClassifier())
 
 if __name__ == "__main__":
     main()
