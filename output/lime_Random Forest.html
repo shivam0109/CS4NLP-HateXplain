@@ -37089,28 +37089,28 @@
 /***/ })
 /******/ ]);
 //# sourceMappingURL=bundle.js.map </script></head><body>
-        <div class="lime top_div" id="top_divEM5R5PDRZ5YHD8G"></div>
+        <div class="lime top_div" id="top_divJN3QEL45EH0O99J"></div>
         
         <script>
-        var top_div = d3.select('#top_divEM5R5PDRZ5YHD8G').classed('lime top_div', true);
+        var top_div = d3.select('#top_divJN3QEL45EH0O99J').classed('lime top_div', true);
         
             var pp_div = top_div.append('div')
                                 .classed('lime predict_proba', true);
             var pp_svg = pp_div.append('svg').style('width', '100%');
-            var pp = new lime.PredictProba(pp_svg, ["Normal", "Hate Speech"], [0.2842056729730434, 0.7157943270269567]);
+            var pp = new lime.PredictProba(pp_svg, ["Normal", "Hate Speech"], [0.24, 0.76]);
             
         
         var exp_div;
             var exp = new lime.Explanation(["Normal", "Hate Speech"]);
         
                 exp_div = top_div.append('div').classed('lime explanation', true);
-                exp.show([["suck", -0.15002631617082424], ["trump", -0.1326783556704445], ["gay", 0.12545470911315007], ["even", -0.12250334706997282], ["maybe", 0.08551732028736267], ["lover", -0.03613704670002615]], 0, exp_div);
+                exp.show([["mudshark", -0.3386942106038867], ["know", -0.010446859152111914], ["looking", -0.007814914179565664], ["sometimes", -0.006139845279939018]], 0, exp_div);
                 
                 exp_div = top_div.append('div').classed('lime explanation', true);
-                exp.show([["suck", 0.15002631617082435], ["trump", 0.13267835567044445], ["gay", -0.12545470911315007], ["even", 0.12250334706997278], ["maybe", -0.0855173202873627], ["lover", 0.03613704670002611]], 1, exp_div);
+                exp.show([["mudshark", 0.3386942106038867], ["know", 0.010446859152111942], ["looking", 0.007814914179565794], ["sometimes", 0.006139845279939051]], 1, exp_div);
                 
         var raw_div = top_div.append('div');
-            exp.show_raw_text([["suck", 12, -0.15002631617082424], ["trump", 17, -0.1326783556704445], ["gay", 41, 0.12545470911315007], ["even", 29, -0.12250334706997282], ["maybe", 23, 0.08551732028736267], ["lover", 45, -0.03613704670002615]], 0, "news anchor suck trump maybe even secret gay lover", raw_div, true);
+            exp.show_raw_text([["mudshark", 15, -0.3386942106038867], ["know", 10, -0.010446859152111914], ["looking", 24, -0.007814914179565664], ["sometimes", 0, -0.006139845279939018]], 0, "sometimes know mudshark looking", raw_div, true);
             
         </script>
         </body></html>
