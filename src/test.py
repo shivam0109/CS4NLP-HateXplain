@@ -1,4 +1,5 @@
 import numpy as np
+import torch
 from sklearn.feature_extraction.text import CountVectorizer
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.ensemble import RandomForestClassifier
@@ -11,13 +12,15 @@ from nltk.corpus import stopwords
 from nltk.stem import WordNetLemmatizer
 
 from datasets import load_dataset, concatenate_datasets
+from transformers import BertTokenizer, BertForSequenceClassification
 
 SCORE = {0: 1, 1: 0, 2: 0.5} # 0: Hate Speech, 1: Normal, 2: Offensive
 STOP_WORDS = stopwords.words('english')
+BLACKLISTED_WORDS = ["<user>", "<url>"]
 LEMMATIZER = WordNetLemmatizer()
 
 def preprocess_sample(sample: dict) -> dict:
-    words = [LEMMATIZER.lemmatize(word) for word in sample['post_tokens'] if word not in STOP_WORDS]
+    words = [LEMMATIZER.lemmatize(word) for word in sample['post_tokens'] if word not in STOP_WORDS or BLACKLISTED_WORDS]
     sample["sentence"] = " ".join([word for word in words])
     avg_score = sum(SCORE[score] for score in sample['annotators']['label']) / len(sample['annotators']['label'])
     sample["classification"] = 1 if avg_score >= 0.5 else 0
@@ -36,9 +39,6 @@ def get_data(vectorize: bool = True):
         vectorizer = CountVectorizer()
         sentences = vectorizer.fit_transform(concatenated_dataset["sentence"]).toarray()
         classifications = np.array(concatenated_dataset["classification"])
-
-        percentage_of_zeros = np.count_nonzero(classifications == 0) / len(classifications)
-        print("Percentage of zeros:", percentage_of_zeros)
 
         return sentences, classifications, vectorizer
 
@@ -89,13 +89,38 @@ def analyze_classifier(X_train, X_test, y_train, y_test, vectorizer, classifier)
     
     print("---------------------------------------------")
 
-def main() -> None:
-    sentences, classifications, vectorizer = get_data()
-    X_train, X_test, y_train, y_test = train_test_split(sentences, classifications, test_size=0.2, random_state=42)
+def bertclassifier():
+    sentences, classifications = get_data(vectorize=False)
+    
+    _, sentences, _, classifications = train_test_split(sentences, classifications, test_size=0.2, random_state=42)
 
-    analyze_svm(X_train, X_test, y_train, y_test, vectorizer, SVC(kernel='linear', random_state=42))
-    analyze_classifier(X_train, X_test, y_train, y_test, vectorizer, DecisionTreeClassifier())
-    analyze_classifier(X_train, X_test, y_train, y_test, vectorizer, RandomForestClassifier())
+    prefix = "Classify the following sentence as either hate speech or normal: "
+    prefix_sentences = [prefix + sentence for sentence in sentences]
+    tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
+    model = BertForSequenceClassification.from_pretrained('bert-base-uncased')
+
+    tokenized_inputs = tokenizer(prefix_sentences, padding=True, truncation=True, return_tensors='pt')
+
+    model.eval()
+    with torch.no_grad():
+        outputs = model(**tokenized_inputs)
+
+    softmax = torch.softmax(outputs.logits, dim=1)
+    model_outputs = torch.argmax(softmax, dim=1).numpy()
+
+    print("Accuracy:", accuracy_score(model_outputs, classifications))
+    print("F1:", f1_score(model_outputs, classifications))
+    print("Precision:", precision_score(model_outputs, classifications))
+    print("Recall:", recall_score(model_outputs, classifications))
+
+def main() -> None:
+    bertclassifier()
+    # sentences, classifications, vectorizer = get_data()
+    # X_train, X_test, y_train, y_test = train_test_split(sentences, classifications, test_size=0.2, random_state=42)
+
+    # analyze_svm(X_train, X_test, y_train, y_test, vectorizer, SVC(kernel='linear', random_state=42))
+    # analyze_classifier(X_train, X_test, y_train, y_test, vectorizer, DecisionTreeClassifier())
+    # analyze_classifier(X_train, X_test, y_train, y_test, vectorizer, RandomForestClassifier())
 
 if __name__ == "__main__":
     main()
