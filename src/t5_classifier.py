@@ -1,6 +1,8 @@
 import numpy as np
 import torch
 import torch.nn as nn
+from torch.utils.data import Dataset, DataLoader
+import pytorch_lightning as pl
 
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_score
@@ -8,13 +10,97 @@ from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_sc
 from nltk.corpus import stopwords
 from nltk.stem import WordNetLemmatizer
 
-from transformers import T5Tokenizer, T5ForSequenceClassification
+from transformers import T5Tokenizer, T5Model
 from datasets import load_dataset, concatenate_datasets
 
 SCORE = {0: 1, 1: 0, 2: 0.5} # 0: Hate Speech, 1: Normal, 2: Offensive
 STOP_WORDS = stopwords.words('english')
 LEMMATIZER = WordNetLemmatizer()
 
+class HateXplainDataset(Dataset):
+    def __init__(self, sentences, classifications, tokenizer):
+        self.inputs = tokenizer.batch_encode_plus(
+            sentences,
+            padding=True,
+            truncation=True,
+            return_tensors="pt"
+        )
+        self.classifications = classifications
+
+    def __len__(self):
+        return len(self.classifications)
+    
+    def __getitem__(self, idx):
+        input_ids = self.inputs["input_ids"][idx]
+        attention_mask = self.inputs["attention_mask"][idx]
+        classification = self.classifications[idx]
+
+        return {
+            "input_ids": input_ids,
+            "attention_mask": attention_mask,
+            "classifications": classification
+        }
+
+class HateXplainDataModule(pl.LightningDataModule):
+    def __init__(self, sentences, classifications, tokenizer, batch_size=8):
+        super().__init__()
+        self.sentences = sentences
+        self.classifications = classifications
+        self.tokenizer = tokenizer
+        self.batch_size = batch_size
+
+    def setup(self, stage=None):
+        X_train, X_test, y_train, y_test = train_test_split(self.sentences, self.classifications, test_size=0.2, random_state=42)
+        self.train_dataset = HateXplainDataset(X_train, y_train, self.tokenizer)
+        self.val_dataset = HateXplainDataset(X_test, y_test, self.tokenizer)
+
+    def train_dataloader(self):
+        return DataLoader(self.train_dataset, batch_size=self.batch_size, shuffle=True)
+    
+    def val_dataloader(self):
+        return DataLoader(self.val_dataset, batch_size=self.batch_size)
+    
+class T5Finetuner(pl.LightningModule):
+    def __init__(self, model_name, num_classes=2, learning_rate=1e-4):
+        super().__init__()
+        self.model = T5Model.from_pretrained(model_name)
+        self.linear = torch.nn.Linear(self.model.config.hidden_size, num_classes)
+        self.loss = torch.nn.BCEWithLogitsLoss()
+        self.learning_rate = learning_rate
+
+    def forward(self, input_ids, attention_mask):
+        with torch.no_grad():
+            outputs = self.model(input_ids=input_ids, attention_mask=attention_mask)
+        logits = self.linear(outputs.last_hidden_state[:, 0])
+        return logits
+
+    def training_step(self, batch, batch_idx):
+        input_ids = batch["input_ids"]
+        attention_mask = batch["attention_mask"]
+        labels = batch["classifications"]
+
+        logits = self(input_ids, attention_mask)
+        print(logits)
+
+        loss = self.loss(logits, labels.float())
+
+        self.log("train_loss", loss)
+        return loss
+
+    def validation_step(self, batch, batch_idx):
+        input_ids = batch["input_ids"]
+        attention_mask = batch["attention_mask"]
+        labels = batch["classifications"]
+
+        logits = self(input_ids, attention_mask)
+        loss = self.loss(logits, labels.float())
+
+        self.log("val_loss", loss)
+        return loss
+
+    def configure_optimizers(self):
+        optimizer = torch.optim.Adam(self.parameters(), lr=self.learning_rate)
+        return optimizer
 
 def preprocess_sample(sample: dict) -> dict:
     words = [LEMMATIZER.lemmatize(word) for word in sample['post_tokens'] if word not in STOP_WORDS]
@@ -23,7 +109,7 @@ def preprocess_sample(sample: dict) -> dict:
     sample["classification"] = 1 if avg_score >= 0.5 else 0
     return sample
 
-def get_data(vectorize: bool = True):
+def get_data():
     dataset = load_dataset('hatexplain')
     concatenated_dataset = concatenate_datasets([dataset["train"], dataset["validation"], dataset["test"]])
     concatenated_dataset = concatenated_dataset.map(preprocess_sample, remove_columns=["id", "annotators", "rationales", "post_tokens"])
@@ -31,91 +117,19 @@ def get_data(vectorize: bool = True):
     sentences = list(concatenated_dataset["sentence"])
     classifications = np.array(concatenated_dataset["classification"])
 
-    return sentences, classifications
-
-def classify_t5(X_train, X_test, y_train, y_test):
-    model_name = 't5-base'
-    t5_tokenizer = T5Tokenizer.from_pretrained(model_name)
-    t5_model = T5ForSequenceClassification.from_pretrained(model_name)
-    classification_head = nn.Linear(t5_model.config.hidden_size, 2)
-
-    train_inputs = t5_tokenizer.batch_encode_plus(
-        X_train,
-        padding=True,
-        truncation=True,
-        return_tensors="pt"
-    )
-    train_outputs = t5_model(**train_inputs)
-    last_hidden_state = train_outputs.last_hidden_state
-    train_logits = classification_head(last_hidden_state[:, 0, :])
-
-    test_inputs = t5_tokenizer.batch_encode_plus(
-        X_test,
-        padding=True,
-        truncation=True,
-        return_tensors="pt"
-    )
-    test_outputs = t5_model(**test_inputs)
-    last_hidden_state = test_outputs.last_hidden_state
-    test_logits = classification_head(last_hidden_state[:, 0, :])
-
-    loss_fn = nn.CrossEntropyLoss()
-    optimizer = torch.optim.Adam(model.parameters(), lr=1e-5)
-
-    # Perform forward pass and calculate loss
-    logits = classification_head(last_hidden_state[:, 0, :])
-    loss = loss_fn(logits, labels)
-
-    # Perform backward pass and update model parameters
-    optimizer.zero_grad()
-    loss.backward()
-    optimizer.step()
-
-def classify_t5() -> None:
-    model_name = 'bert-base-uncased'
-    model = T5ForSequenceClassification.from_pretrained(model_name, num_labels=2)
-    tokenizer = T5Tokenizer.from_pretrained(model_name)
-
-    sentences, classifications = get_data(vectorize=False)
-    prefix = "Is the following sentence normal or hate speech? "
-    sentences = [prefix + sentence for sentence in sentences]
-
-    X_train, X_test, y_train, y_test = train_test_split(sentences, classifications, test_size=0.2, random_state=42)
-
-    train_inputs = tokenizer.batch_encode_plus(
-        X_train,
-        padding=True,
-        truncation=True,
-        return_tensors="pt"
-    )
-
-    test_inputs = tokenizer.batch_encode_plus(
-        X_test,
-        padding=True,
-        truncation=True,
-        return_tensors="pt"
-    )
-
-
-    outputs = model(
-        inputs["input_ids"],
-        attention_mask=inputs["attention_mask"]
-    )
-    # predictions = [0 if "0" in prediction else 1 for prediction in predictions]
-    predictions = torch.argmax(outputs.logits, dim=1).tolist()
-    print(classifications)
-    print(predictions)
-    print(outputs.logits)
-    
-    # accuracy = accuracy_score(classifications, predictions)
-    # f1 = f1_score(classifications, predictions)
-
-    # print("Accuracy:", accuracy)
-    # print("F1-score:", f1)
+    return sentences, classifications    
 
 def main():
+    model_name = "t5-small"
+    tokenizer = T5Tokenizer.from_pretrained(model_name)
+    model = T5Finetuner(model_name)
+
     sentences, classifications = get_data()
-    X_train, X_test, y_train, y_test = train_test_split(sentences, classifications, test_size=0.2, random_state=42)
+    datamodule = HateXplainDataModule(sentences[0:100], classifications[0:100], tokenizer)
+    datamodule.setup()
+
+    trainer = pl.Trainer(max_epochs=10)
+    trainer.fit(model, datamodule)
 
 if __name__ == "__main__":
     main()
