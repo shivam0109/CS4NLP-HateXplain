@@ -8,8 +8,9 @@ from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_sc
 from nltk.corpus import stopwords
 from nltk.stem import WordNetLemmatizer
 
-from transformers import T5Tokenizer, T5ForSequenceClassification
+from transformers import T5Tokenizer, T5ForConditionalGeneration
 from datasets import load_dataset, concatenate_datasets
+import torch.nn.functional as F
 
 SCORE = {0: 1, 1: 0, 2: 0.5} # 0: Hate Speech, 1: Normal, 2: Offensive
 STOP_WORDS = stopwords.words('english')
@@ -33,7 +34,85 @@ def get_data(vectorize: bool = True):
 
     return sentences, classifications
 
+def imdb_reviews(
+    dataset,
+    prefix='sentiment',
+    output_classes=('negative', 'positive')
+    ):
+  """Preprocessor to handle imdb movie reviews.
+
+  Preprocessor converts an example from the IMDB movie review dataset to the
+  text to text format. The following is an example from IMDB dataset.
+  {
+    'text': 'This is a bad movie. Skip it.'
+    'label': 0,
+  }
+
+  The example will be transformed to the following format by the preprocessor:
+  {
+    'inputs': 'sentiment review: This is a bad movie. Skip it.'
+    'targets': 'negative'
+  }
+
+  Examples with no label (-1) will have '<unk>' as their target.
+
+  Args:
+    dataset: a tf.data.Dataset to process.
+    prefix: str, prefix to prepend to the inputs.
+    output_classes: list of output classes in the input dataset. Defaults to
+      ['negative', 'positive'] for the movie reviews dataset.
+
+  Returns:
+    a tf.data.Dataset
+
+  """
+  def my_fn(x):
+    """Helper function to transform a rationale dataset to inputs/targets."""
+    inputs = tf.strings.join([prefix + ':', x['text']], separator=' ')
+
+    class_label = tf.cond(
+        x['label'] > -1,
+        lambda: tf.gather(output_classes, x['label']),
+        lambda: '<unk>')
+
+    return {'inputs': inputs, 'targets': class_label}
+
+  return dataset.map(my_fn, num_parallel_calls=tf.data.experimental.AUTOTUNE)
+
+def map_sst2(str):
+   return "sst2 sentence: " + str
+
+def map_label(label):
+   dict = {0: "negative", 1: "positive"}
+   return dict[label]
+
+def postprocess(str):
+   str = str.replace(" ", "")
+   str = str.replace("<pad>","")
+   str = str.replace("</s>","")
+   dict = {"negative": 1, "positive":0}
+   return dict[str]
+
+
 def classify_t5(X_train, X_test, y_train, y_test):
+    tokenizer = T5Tokenizer.from_pretrained("t5-small")
+    model = T5ForConditionalGeneration.from_pretrained("t5-small")
+    X_train_sst2 = list(map(map_sst2,X_train))
+    enc = tokenizer.batch_encode_plus(
+        X_train_sst2,
+        padding=True,
+        truncation=True,
+        return_tensors="pt"
+    )
+    tokens = model.generate(**enc,output_scores=True,return_dict_in_generate=True)
+    logits = tokens["scores"][0]
+    selected_logits = logits[:, [1465, 2841]] 
+    probs = F.softmax(selected_logits, dim=1)
+    decoded = list(map(postprocess,tokenizer.batch_decode(tokens["sequences"])))
+    print(sum(1 for x,y in zip(decoded,y_train) if x == y) / len(decoded))
+    print(probs)
+    print(decoded)
+    exit()
     model_name = 't5-base'
     t5_tokenizer = T5Tokenizer.from_pretrained(model_name)
     t5_model = T5ForSequenceClassification.from_pretrained(model_name)
@@ -71,51 +150,15 @@ def classify_t5(X_train, X_test, y_train, y_test):
     loss.backward()
     optimizer.step()
 
-def classify_t5() -> None:
-    model_name = 'bert-base-uncased'
-    model = T5ForSequenceClassification.from_pretrained(model_name, num_labels=2)
-    tokenizer = T5Tokenizer.from_pretrained(model_name)
-
-    sentences, classifications = get_data(vectorize=False)
-    prefix = "Is the following sentence normal or hate speech? "
-    sentences = [prefix + sentence for sentence in sentences]
-
-    X_train, X_test, y_train, y_test = train_test_split(sentences, classifications, test_size=0.2, random_state=42)
-
-    train_inputs = tokenizer.batch_encode_plus(
-        X_train,
-        padding=True,
-        truncation=True,
-        return_tensors="pt"
-    )
-
-    test_inputs = tokenizer.batch_encode_plus(
-        X_test,
-        padding=True,
-        truncation=True,
-        return_tensors="pt"
-    )
-
-
-    outputs = model(
-        inputs["input_ids"],
-        attention_mask=inputs["attention_mask"]
-    )
-    # predictions = [0 if "0" in prediction else 1 for prediction in predictions]
-    predictions = torch.argmax(outputs.logits, dim=1).tolist()
-    print(classifications)
-    print(predictions)
-    print(outputs.logits)
-    
-    # accuracy = accuracy_score(classifications, predictions)
-    # f1 = f1_score(classifications, predictions)
-
-    # print("Accuracy:", accuracy)
-    # print("F1-score:", f1)
-
 def main():
     sentences, classifications = get_data()
     X_train, X_test, y_train, y_test = train_test_split(sentences, classifications, test_size=0.2, random_state=42)
+    X_train = X_train[:100]
+    X_test = X_test[:100]
+    y_train = y_train[:100]
+    y_test = y_test[:100]
+    classify_t5(X_train, X_test, y_train, y_test)
+    exit()
 
 if __name__ == "__main__":
     main()
