@@ -95,8 +95,7 @@ def postprocess(str):
 
 
 def classify_t5(X_train, X_test, y_train, y_test):
-    tokenizer = T5Tokenizer.from_pretrained('Narrativa')
-    exit()
+    tokenizer = T5Tokenizer.from_pretrained("t5-small")
     model = T5ForConditionalGeneration.from_pretrained("t5-small")
     X_train_sst2 = list(map(map_sst2,X_train))
     enc = tokenizer.batch_encode_plus(
