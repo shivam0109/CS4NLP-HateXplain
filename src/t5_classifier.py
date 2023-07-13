@@ -11,6 +11,7 @@ from nltk.stem import WordNetLemmatizer
 from transformers import T5Tokenizer, T5ForConditionalGeneration
 from datasets import load_dataset, concatenate_datasets
 import torch.nn.functional as F
+from lime.lime_text import LimeTextExplainer
 
 SCORE = {0: 1, 1: 0, 2: 0.5} # 0: Hate Speech, 1: Normal, 2: Offensive
 STOP_WORDS = stopwords.words('english')
@@ -83,7 +84,7 @@ def map_sst2(str):
    return "sst2 sentence: " + str
 
 def map_label(label):
-   dict = {0: "negative", 1: "positive"}
+   dict = {0: "positive", 1: "negative"}
    return dict[label]
 
 def postprocess(str):
@@ -93,62 +94,33 @@ def postprocess(str):
    dict = {"negative": 1, "positive":0}
    return dict[str]
 
+def predictor(texts): 
+   tokenizer = T5Tokenizer.from_pretrained("t5-small")
+   model = T5ForConditionalGeneration.from_pretrained("t5-small")
+   enc = tokenizer.batch_encode_plus(
+        texts,
+        padding=True,
+        truncation=True,
+        return_tensors="pt"
+    )
+   tokens = model.generate(**enc,output_scores=True,return_dict_in_generate=True)
+   logits = tokens["scores"][0]
+   selected_logits = logits[:, [1465, 2841]] 
+   probs = F.softmax(selected_logits, dim=1).detach().cpu().numpy()
+   return probs
+   
+
+   
 
 def classify_t5(X_train, X_test, y_train, y_test):
-    tokenizer = T5Tokenizer.from_pretrained("t5-small")
-    model = T5ForConditionalGeneration.from_pretrained("t5-small")
     X_train_sst2 = list(map(map_sst2,X_train))
-    enc = tokenizer.batch_encode_plus(
-        X_train_sst2,
-        padding=True,
-        truncation=True,
-        return_tensors="pt"
-    )
-    tokens = model.generate(**enc,output_scores=True,return_dict_in_generate=True)
-    logits = tokens["scores"][0]
-    selected_logits = logits[:, [1465, 2841]] 
-    probs = F.softmax(selected_logits, dim=1)
-    decoded = list(map(postprocess,tokenizer.batch_decode(tokens["sequences"])))
-    print(sum(1 for x,y in zip(decoded,y_train) if x == y) / len(decoded))
-    print(probs)
-    print(decoded)
+    #probs = predictor(X_train_sst2)
+    explainer = LimeTextExplainer(class_names=["negative", "positive"])
+    exp = explainer.explain_instance(X_train_sst2[0], predictor, num_features=6, labels=[0, 1])
+    html_object = exp.as_html(labels=[0,1],predict_proba=True,show_predicted_value=True)
+    with open(f"output/lime_t5.html", "w") as file:
+        file.write(str(html_object))
     exit()
-    model_name = 't5-base'
-    t5_tokenizer = T5Tokenizer.from_pretrained(model_name)
-    t5_model = T5ForSequenceClassification.from_pretrained(model_name)
-    classification_head = nn.Linear(t5_model.config.hidden_size, 2)
-
-    train_inputs = t5_tokenizer.batch_encode_plus(
-        X_train,
-        padding=True,
-        truncation=True,
-        return_tensors="pt"
-    )
-    train_outputs = t5_model(**train_inputs)
-    last_hidden_state = train_outputs.last_hidden_state
-    train_logits = classification_head(last_hidden_state[:, 0, :])
-
-    test_inputs = t5_tokenizer.batch_encode_plus(
-        X_test,
-        padding=True,
-        truncation=True,
-        return_tensors="pt"
-    )
-    test_outputs = t5_model(**test_inputs)
-    last_hidden_state = test_outputs.last_hidden_state
-    test_logits = classification_head(last_hidden_state[:, 0, :])
-
-    loss_fn = nn.CrossEntropyLoss()
-    optimizer = torch.optim.Adam(model.parameters(), lr=1e-5)
-
-    # Perform forward pass and calculate loss
-    logits = classification_head(last_hidden_state[:, 0, :])
-    loss = loss_fn(logits, labels)
-
-    # Perform backward pass and update model parameters
-    optimizer.zero_grad()
-    loss.backward()
-    optimizer.step()
 
 def main():
     sentences, classifications = get_data()
