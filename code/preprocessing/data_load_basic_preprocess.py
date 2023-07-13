@@ -13,9 +13,9 @@ import datetime
 
 
 # OUTPUT FILE LOCATIONS
-train_processed_path = '../data/df_train_processed.csv'
-val_processed_path = '../data/df_val_processed.csv'
-test_processed_path = '../data/df_test_processed.csv'
+train_processed_path = '../../data/df_train_processed.csv'
+val_processed_path = '../../data/df_val_processed.csv'
+test_processed_path = '../../data/df_test_processed.csv'
 
 
 class DataLoadPreprocess():
