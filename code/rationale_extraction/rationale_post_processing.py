@@ -12,15 +12,15 @@ from nltk.corpus import stopwords
 
 
 #### INPUT 
-train_rationale_path = '../data/rationale_extraction/df_train_with_rationales.csv'
-val_rationale_path = '../data/rationale_extraction/df_val_with_rationales.csv'
-test_rationale_path = '../data/rationale_extraction/df_test_with_rationales.csv'
+train_rationale_path = '../../data/rationale_extraction/df_train_with_rationales.csv'
+val_rationale_path = '../../data/rationale_extraction/df_val_with_rationales.csv'
+test_rationale_path = '../../data/rationale_extraction/df_test_with_rationales.csv'
 columns = ['id', 'annotators', 'rationales', 'post_tokens', 'masked_tokens', 'unmasked_sentence', 'masked_sentence', 'hugchat_response']
 
 ### Output 
-train_rationale_post_processed_path = '../data/rationale_extraction/df_train_rationale_post_processed.csv'
-val_rationale_post_processed_path = '../data/rationale_extraction/df_val_rationale_post_processed.csv'
-test_rationale_post_processed_path = '../data/rationale_extraction/df_test_rationale_post_processed.csv'
+train_rationale_post_processed_path = '../../data/rationale_extraction/df_train_rationale_post_processed.csv'
+val_rationale_post_processed_path = '../../data/rationale_extraction/df_val_rationale_post_processed.csv'
+test_rationale_post_processed_path = '../../data/rationale_extraction/df_test_rationale_post_processed.csv'
 
 
 class RationalePostProcess():

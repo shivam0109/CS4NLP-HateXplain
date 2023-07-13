@@ -22,15 +22,15 @@ sign.saveCookies()
 
 
 ## INPUT FILES 
-train_path = '../data/load_and_preprocess/df_train_processed.csv'
-val_path = '../data/load_and_preprocess/df_val_processed.csv'
-test_path = '../data/load_and_preprocess/df_test_processed.csv'
+train_path = '../../data/load_and_preprocess/df_train_processed.csv'
+val_path = '../../data/load_and_preprocess/df_val_processed.csv'
+test_path = '../../data/load_and_preprocess/df_test_processed.csv'
 
 ## OUTPUT FILES 
-train_rationale_path = '../data/rationale_extraction/df_train_with_rationales.csv'
-val_rationale_path = '../data/rationale_extraction/df_val_with_rationales.csv'
-test_rationale_path = '../data/rationale_extraction/df_test_with_rationales.csv'
-texts_not_processed_path = '../data/texts_not_processed.pkl'
+train_rationale_path = '../../data/rationale_extraction/df_train_with_rationales.csv'
+val_rationale_path = '../../data/rationale_extraction/df_val_with_rationales.csv'
+test_rationale_path = '../../data/rationale_extraction/df_test_with_rationales.csv'
+texts_not_processed_path = '../../data/texts_not_processed.pkl'
 
 # Prompt 
 prompt_start = """
