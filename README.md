@@ -27,3 +27,7 @@ To reproduce results from BERT models, run the three notebooks in the folder: co
 
 To reproduce results from T5 models and baseline results, run: code\t5\t5_evaluation.ipynb
 To reproduce results from BERT models, run the three notebooks in the folder: code\bert\
+
+To reproduce results from T5 models and baseline results, run: code\t5\t5_evaluation.ipynb
+To reproduce results from T5 models and baseline results, run: code\t5\t5_evaluation.ipynb   
+To reproduce results from BERT models, run the three notebooks in the folder: code\bert\
