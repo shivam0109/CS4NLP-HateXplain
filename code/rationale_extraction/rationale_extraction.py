@@ -20,7 +20,6 @@ sign = Login(email, passwd)
 cookies = sign.loadCookies() # This will detect if the JSON file exists, return cookies if it does and raise an Exception if it's not.
 sign.saveCookies()
 
-
 ## INPUT FILES 
 train_path = '../../data/load_and_preprocess/df_train_processed.csv'
 val_path = '../../data/load_and_preprocess/df_val_processed.csv'

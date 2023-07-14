@@ -11,12 +11,10 @@ import randomtimestamp
 import names 
 import datetime 
 
-
 # OUTPUT FILE LOCATIONS
 train_processed_path = '../../data/df_train_processed.csv'
 val_processed_path = '../../data/df_val_processed.csv'
 test_processed_path = '../../data/df_test_processed.csv'
-
 
 class DataLoadPreprocess():
     # Load dataset 
@@ -125,13 +123,11 @@ class DataLoadPreprocess():
         unmasked_token_list = [x if x not in replacement_dict else replacement_dict[x] for x in token_list]
         return " ".join(unmasked_token_list)
 
-
     # Function to get unmasked sentences for train, val and test 
     def get_unmasked_sentence(self, unique_masked_tokens):
         self.df_train['unmasked_sentence'] = self.df_train["post_tokens"].apply(lambda x: self.unmask_tokens_create_sentence_helper(unique_masked_tokens, x))
         self.df_val['unmasked_sentence'] = self.df_val["post_tokens"].apply(lambda x: self.unmask_tokens_create_sentence_helper(unique_masked_tokens, x))
         self.df_test['unmasked_sentence'] = self.df_test["post_tokens"].apply(lambda x: self.unmask_tokens_create_sentence_helper(unique_masked_tokens, x))
-
 
     # Function to get masked sentence for train, val and test 
     def get_masked_sentence(self):
@@ -156,4 +152,3 @@ class DataLoadPreprocess():
 if __name__ == "__main__":
     dlp = DataLoadPreprocess()
     dlp.run()
-    

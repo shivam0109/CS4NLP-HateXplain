@@ -74,9 +74,7 @@ class HateXplainDataModule(pl.LightningDataModule):
                 self.preprocess_sample,
                 remove_columns=["id", "annotators", "rationales", "post_tokens"]
             )
-
             # self.dataset[split] = {entry for entry in self.dataset[split] if type(entry["input_ids"]) == torch.Tensor}
-        
 
     def train_dataloader(self):
         return DataLoader(HateXplainDataset(self.dataset["train"]), shuffle=True)

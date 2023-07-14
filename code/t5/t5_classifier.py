@@ -1,8 +1,11 @@
 import numpy as np
 import torch
-import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader
 import pytorch_lightning as pl
+import tensorflow as tf
+
+import torch.nn.functional as F
+from lime.lime_text import LimeTextExplainer
 
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_score
@@ -60,7 +63,6 @@ class HateXplainDataModule(pl.LightningDataModule):
     def val_dataloader(self):
         return DataLoader(self.val_dataset, batch_size=self.batch_size)
     
-
 class T5Finetuner(pl.LightningModule):
     def __init__(self, model_name, num_classes=2, learning_rate=1e-4):
         super().__init__()
@@ -119,56 +121,6 @@ def get_data():
     classifications = np.array(concatenated_dataset["classification"])
 
     return sentences, classifications    
-
-def main():
-    model_name = "t5-small"
-    tokenizer = T5Tokenizer.from_pretrained(model_name)
-    model = T5Finetuner(model_name)
-
-    sentences, classifications = get_data()
-    datamodule = HateXplainDataModule(sentences[0:100], classifications[0:100], tokenizer)
-    datamodule.setup()
-
-    trainer = pl.Trainer(max_epochs=10)
-    trainer.fit(model, datamodule)
-
-if __name__ == "__main__":
-    main()import numpy as np
-import torch
-import torch.nn as nn
-
-from sklearn.model_selection import train_test_split
-from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_score
-
-from nltk.corpus import stopwords
-from nltk.stem import WordNetLemmatizer
-
-from transformers import T5Tokenizer, T5ForConditionalGeneration
-from datasets import load_dataset, concatenate_datasets
-import torch.nn.functional as F
-from lime.lime_text import LimeTextExplainer
-
-SCORE = {0: 1, 1: 0, 2: 0.5} # 0: Hate Speech, 1: Normal, 2: Offensive
-STOP_WORDS = stopwords.words('english')
-LEMMATIZER = WordNetLemmatizer()
-
-
-def preprocess_sample(sample: dict) -> dict:
-    words = [LEMMATIZER.lemmatize(word) for word in sample['post_tokens'] if word not in STOP_WORDS]
-    sample["sentence"] = " ".join([word for word in words])
-    avg_score = sum(SCORE[score] for score in sample['annotators']['label']) / len(sample['annotators']['label'])
-    sample["classification"] = 1 if avg_score >= 0.5 else 0
-    return sample
-
-def get_data(vectorize: bool = True):
-    dataset = load_dataset('hatexplain')
-    concatenated_dataset = concatenate_datasets([dataset["train"], dataset["validation"], dataset["test"]])
-    concatenated_dataset = concatenated_dataset.map(preprocess_sample, remove_columns=["id", "annotators", "rationales", "post_tokens"])
-
-    sentences = list(concatenated_dataset["sentence"])
-    classifications = np.array(concatenated_dataset["classification"])
-
-    return sentences, classifications
 
 def imdb_reviews(
     dataset,
@@ -244,10 +196,6 @@ def predictor(texts):
    probs = F.softmax(selected_logits, dim=1).detach().cpu().numpy()
    return probs
    
-
-   
-
-
 def classify_t5(X_train, X_test, y_train, y_test):
     X_train_sst2 = list(map(map_sst2,X_train))
     #probs = predictor(X_train_sst2)
@@ -261,12 +209,17 @@ def classify_t5(X_train, X_test, y_train, y_test):
 def main():
     sentences, classifications = get_data()
     X_train, X_test, y_train, y_test = train_test_split(sentences, classifications, test_size=0.2, random_state=42)
-    X_train = X_train[:100]
-    X_test = X_test[:100]
-    y_train = y_train[:100]
-    y_test = y_test[:100]
     classify_t5(X_train, X_test, y_train, y_test)
-    exit()
+
+    tokenizer = T5Tokenizer.from_pretrained("t5-base")
+    model = T5Finetuner("t5-base")
+
+    sentences, classifications = get_data()
+    datamodule = HateXplainDataModule(sentences[0:100], classifications[0:100], tokenizer)
+    datamodule.setup()
+
+    trainer = pl.Trainer(max_epochs=10)
+    trainer.fit(model, datamodule)
 
 if __name__ == "__main__":
     main()

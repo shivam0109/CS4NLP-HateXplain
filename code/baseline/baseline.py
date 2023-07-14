@@ -1,18 +1,11 @@
 from sklearn.feature_extraction.text import TfidfVectorizer
 from datasets import load_dataset
 from sklearn.svm import SVR
-from sklearn.tree import DecisionTreeRegressor
-from sklearn.neighbors import KNeighborsRegressor
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.neighbors import KNeighborsClassifier
 
 from sklearn.metrics import mean_squared_error
 from nltk.corpus import stopwords
-
-from nltk.tokenize import word_tokenize
-
-from gensim import downloader
-
-from transformers import AutoTokenizer, AutoModelForSequenceClassification
-
 
 STOP_WORDS = stopwords.words('english')
 SCORE = {0: 2, 1: 0, 2:1}
@@ -42,12 +35,12 @@ def support_vector_regression(train_X, train_Y):
     return clf
 
 def decision_tree_regression(train_X, train_Y):
-    clf = DecisionTreeRegressor(max_depth=25)
+    clf = DecisionTreeClassifier(max_depth=25)
     clf.fit(train_X, train_Y)
     return clf
 
 def knn_regression(train_X, train_Y):
-    clf = KNeighborsRegressor(n_neighbors=25)
+    clf = KNeighborsClassifier(n_neighbors=25)
     clf.fit(train_X, train_Y)
     return clf
 
@@ -80,17 +73,17 @@ def main():
     svr = support_vector_regression(train_X, train_labels)
     pred_y = svr.predict(test_X)
     mse = mean_squared_error(test_labels, pred_y)
-    print(f"SVR - Mean squared error: {mse}")
+    print(f"SVC - Mean squared error: {mse}")
 
     dtr = decision_tree_regression(train_X, train_labels)
     pred_y = dtr.predict(test_X)
     mse = mean_squared_error(test_labels, pred_y)
-    print(f"DTR - Mean squared error: {mse}")
+    print(f"DTC - Mean squared error: {mse}")
 
     knnR = knn_regression(train_X, train_labels)
     pred_y = knnR.predict(test_X)
     mse = mean_squared_error(test_labels, pred_y)
-    print(f"knnR - Mean squared error: {mse}")
+    print(f"KNN - Mean squared error: {mse}")
     print("----------------------------------------------------------")
     while(True):
         text = input("Enter text (or type 'q' to quit): ")
@@ -98,9 +91,9 @@ def main():
             break
 
         embedding = vectorizer.transform([text])
-        print("Support Vector Regression: ", eval(svr.predict(embedding)))
-        print("Decision Tree Regression: ", eval(dtr.predict(embedding)))
-        print("K-Nearest Neighbor Regression: ", eval(knnR.predict(embedding)))
+        print("Support Vector Classifier: ", eval(svr.predict(embedding)))
+        print("Decision Tree Classifier: ", eval(dtr.predict(embedding)))
+        print("K-Nearest Neighbor Classifier: ", eval(knnR.predict(embedding)))
         print("----------------------------------------------------------")
 
 if __name__ == "__main__":

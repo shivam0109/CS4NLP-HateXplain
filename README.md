@@ -36,3 +36,16 @@ To reproduce results from T5 models and baseline results, run: code\t5\t5_evalua
 To reproduce results from T5 models and baseline results, run: code\t5\t5_evaluation.ipynb   
 
 To reproduce results from BERT models, run the three notebooks in the folder: code\bert\
+
+## Instructions
+This repository contains a requirements.txt file listing the necessary Python packages and their versions for running the project. To set up the project environment:
+
+1. Create a Python virtual environment.
+
+2. Activate the virtual environment.
+
+3. Install the required packages with pip:
+
+```
+pip install -r requirements.txt
+```

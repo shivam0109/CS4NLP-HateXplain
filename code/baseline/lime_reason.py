@@ -71,8 +71,6 @@ def lime_analysis(samples,labels, classifier,name, sample_id=1):
     with open(f"output/lime_{name}.html", "w") as file:
         file.write(str(html_object))
 
-
-
 def analyze(X_train, X_test, y_train, y_test, vectorizer, classifier: SVC,name) -> None:
     print(f"Current Classifier: {name}")
     classifier.fit(X_train, y_train)
@@ -82,7 +80,6 @@ def analyze(X_train, X_test, y_train, y_test, vectorizer, classifier: SVC,name) 
     print("Precision:", precision_score(y_test, y_pred))
     print("Recall:", recall_score(y_test, y_pred))
     lime_analysis(X_test,y_test, classifier,name)
-
 
 def main() -> None:
     NUM_SAMPLES = 1000
